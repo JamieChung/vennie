@@ -24,6 +24,7 @@ const { generateExercise, markExerciseCompleted, getStreak, formatExercise } = r
 const { captureShipment, suggestSkillFromDescription, getCareerTimeline, getSkillMatrix, formatCareerSummary } = require('../../core/ship-to-story.js');
 const { getWelcomeSuggestions, getResponseSuggestions, getIdleHint, getOnboardingTip } = require('../../core/suggestions.js');
 const { parseFileReferences, formatFileContext } = require('../../core/context-manager.js');
+const { checkForUpdate: checkForUpdateCore, applyUpdate, applyUpdateFallback } = require('../../core/updater.js');
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ async function setupIPC(vaultPath, version) {
     const allCommands = [...builtInCommands, ...skillCommands].sort((a, b) => a.name.localeCompare(b.name));
 
     // Check npm for updates (non-blocking)
-    const updateAvailable = await checkForUpdate(versionRef).catch(() => null);
+    const updateAvailable = await checkForUpdateCore(versionRef).catch(() => null);
 
     return {
       version: versionRef,
@@ -1004,15 +1005,25 @@ function handleSlashCommand(trimmed, sender) {
     }
 
     case 'update': {
-      const { execSync } = require('child_process');
-      sender.send('agent:event', { type: 'system', message: 'Updating Vennie...' });
+      sender.send('agent:event', { type: 'system', message: 'Checking for updates...' });
+      let updateInfo;
       try {
-        execSync('npm install -g vennie@latest', { timeout: 60000, stdio: 'pipe' });
-        const newPkg = JSON.parse(execSync('npm info vennie version', { encoding: 'utf8' }).trim());
-        return { handled: true, type: 'system', text: `\u2713 Updated to v${newPkg || 'latest'}. Restart Vennie to use the new version.` };
+        updateInfo = checkForUpdateCore(versionRef);
       } catch (err) {
-        return { handled: true, type: 'error', text: `Update failed: ${err.message}\nTry running manually: npm install -g vennie@latest` };
+        return { handled: true, type: 'error', text: `Could not check for updates: ${err.message}` };
       }
+      if (!updateInfo.available) {
+        return { handled: true, type: 'system', text: 'Already on the latest version.' };
+      }
+      sender.send('agent:event', { type: 'system', message: `Updating to v${updateInfo.latest}...` });
+      let newVer;
+      try {
+        newVer = applyUpdate(updateInfo.latest, { silent: true });
+      } catch (err) {
+        sender.send('agent:event', { type: 'system', message: 'Integrity check unavailable, using fallback...' });
+        newVer = applyUpdateFallback(updateInfo.latest, { silent: true });
+      }
+      return { handled: true, type: 'system', text: `\u2713 Updated to v${newVer}. Restart Vennie to use the new version.` };
     }
 
     default: {

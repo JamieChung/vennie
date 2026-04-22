@@ -805,6 +805,8 @@ function cmdSearch() {
 }
 
 function cmdUpdate() {
+  const { checkForUpdate, applyUpdate, applyUpdateFallback } = require('./src/core/updater');
+
   log.banner('Vennie Update');
 
   log.info('Checking for updates...');
@@ -813,20 +815,33 @@ function cmdUpdate() {
     const current = require(path.join(VENNIE_ROOT, 'package.json')).version;
     log.info(`Current version: ${c.bold}v${current}${c.reset}`);
 
-    // Check npm registry
+    let updateInfo;
     try {
-      const latest = execSync('npm view vennie version 2>/dev/null', { encoding: 'utf8' }).trim();
-      if (latest && latest !== current) {
-        log.info(`New version available: ${c.bold}${c.green}v${latest}${c.reset}`);
-        log.step('Updating...');
-        execSync('npm install -g vennie@latest', { stdio: 'inherit' });
-        log.ok('Updated successfully!');
-      } else {
-        log.ok('Already on the latest version.');
-      }
+      updateInfo = checkForUpdate(current);
     } catch {
       log.warn('Could not check npm registry. Check your internet connection.');
       log.info(`You can update manually: ${c.green}npm install -g vennie@latest${c.reset}`);
+      return;
+    }
+
+    if (!updateInfo.available) {
+      log.ok('Already on the latest version.');
+      console.log();
+      return;
+    }
+
+    log.info(`New version available: ${c.bold}${c.green}v${updateInfo.latest}${c.reset}`);
+    log.step('Updating...');
+
+    try {
+      applyUpdate(updateInfo.latest, {
+        onProgress: msg => log.step(msg),
+      });
+      log.ok('Updated successfully!');
+    } catch (err) {
+      log.warn(`Integrity check unavailable, using fallback...`);
+      applyUpdateFallback(updateInfo.latest);
+      log.ok('Updated successfully (fallback)!');
     }
   } catch (err) {
     log.error(`Update failed: ${err.message}`);
