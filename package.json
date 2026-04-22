@@ -16,14 +16,11 @@
     "desktop:build:win": "vite build && electron-builder --win",
     "desktop:build:linux": "vite build && electron-builder --linux",
     "vite:build": "vite build",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run --coverage",
     "install-deps": "pip install mcp pyyaml",
     "postinstall": "node bin/postinstall.js"
-  },
-  "jest": {
-    "testMatch": ["**/tests/**/*.test.js"],
-    "testEnvironment": "node"
   },
   "files": [
     "bin/",
@@ -85,7 +82,9 @@
     "@tailwindcss/postcss": "^4.2.2",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^25.6.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "@vitest/coverage-v8": "^4.1.5",
     "autoprefixer": "^10.4.27",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -95,13 +94,14 @@
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
     "framer-motion": "^12.38.0",
-    "jest": "^30.3.0",
     "lucide-react": "^1.8.0",
     "postcss": "^8.5.9",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.3",
     "vite": "^6.0.0",
+    "vitest": "^4.1.5",
     "wait-on": "^8.0.0"
   }
 }

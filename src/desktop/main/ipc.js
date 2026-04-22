@@ -533,6 +533,9 @@ async function setupIPC(vaultPath, version) {
   });
 
   ipcMain.handle('git:diff', async (_event, { hash }) => {
+    if (!validateCommitHash(hash)) {
+      return { error: 'Invalid commit hash' };
+    }
     try {
       const { execSync } = require('child_process');
       const raw = execSync(
@@ -1224,4 +1227,14 @@ function shutdownMCP() {
   }
 }
 
-module.exports = { setupIPC, shutdownMCP };
+// ── Exported for testing ───────────────────────────────────────────────────
+
+/**
+ * Validate that a commit hash is a safe 40-character hex string.
+ * Rejects anything that could inject shell metacharacters.
+ */
+function validateCommitHash(hash) {
+  return typeof hash === 'string' && /^[0-9a-f]{40}$/i.test(hash);
+}
+
+module.exports = { setupIPC, shutdownMCP, validateCommitHash };
