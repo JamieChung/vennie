@@ -43,6 +43,7 @@ const { extractCommitments, saveCommitment, getOpenCommitments, completeCommitme
 const { recordSignal, recordSuggestionShown, getPendingSuggestions, clearPendingSuggestions, isRejection } = require('../core/feedback-signals.js');
 const { gatherPreflightContext } = require('../core/preflight.js');
 const { createPhaseTracker, shouldShowNudge, getPhaseInstruction } = require('../core/conversation-phase.js');
+const { checkForUpdate, applyUpdate, applyUpdateFallback } = require('../core/updater.js');
 
 const e = React.createElement;
 
@@ -1544,15 +1545,28 @@ function App({ vaultPath, version, userName, initialTools, initialMcp, initialCo
           return;
         }
         case 'update': {
-          const { execSync } = require('child_process');
-          addLine('Updating Vennie...', 'system');
+          const current = require(path.join(VAULT_ROOT, '..', 'package.json')).version;
+          addLine('Checking for updates...', 'system');
+          let updateInfo;
           try {
-            execSync('npm install -g vennie@latest', { timeout: 60000, stdio: 'pipe' });
-            const updVer = execSync('npm info vennie version', { encoding: 'utf8' }).trim();
-            addLine(`\u2713 Updated to v${updVer}. Restart Vennie to use the new version.`, 'system');
+            updateInfo = checkForUpdate(current);
           } catch (err) {
-            addLine(`Update failed: ${err.message}\nTry: npm install -g vennie@latest`, 'system');
+            addLine(`Could not check for updates: ${err.message}`, 'error');
+            return;
           }
+          if (!updateInfo.available) {
+            addLine('Already on the latest version.', 'system');
+            return;
+          }
+          addLine(`Updating to v${updateInfo.latest}...`, 'system');
+          let newVer;
+          try {
+            newVer = applyUpdate(updateInfo.latest, { silent: true });
+          } catch (err) {
+            addLine(`Integrity check unavailable, using fallback...`, 'warn');
+            newVer = applyUpdateFallback(updateInfo.latest, { silent: true });
+          }
+          addLine(`\u2713 Updated to v${newVer}. Restart Vennie to use the new version.`, 'system');
           return;
         }
         default: {

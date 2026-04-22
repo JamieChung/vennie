@@ -20,6 +20,7 @@ const {
   fg, style, PAD,
 } = require('./render.js');
 const { createCompleter } = require('./completer.js');
+const { checkForUpdate, applyUpdate, applyUpdateFallback } = require('../core/updater.js');
 
 // ── CLI Entry Point ─────────────────────────────────────────────────────────
 
@@ -384,15 +385,29 @@ async function startCLI(vaultPath) {
       }
 
       case 'update': {
-        const { execSync } = require('child_process');
-        renderSystem('Updating Vennie...');
+        const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+        const current = pkg.version;
+        renderSystem('Checking for updates...');
+        let updateInfo;
         try {
-          execSync('npm install -g vennie@latest', { timeout: 60000, stdio: 'pipe' });
-          const newVer = execSync('npm info vennie version', { encoding: 'utf8' }).trim();
-          renderSystem(`\u2713 Updated to v${newVer}. Restart Vennie to use the new version.`);
+          updateInfo = checkForUpdate(current);
         } catch (err) {
-          renderSystem(`Update failed: ${err.message}\nTry running manually: npm install -g vennie@latest`);
+          renderSystem(`Could not check for updates: ${err.message}`);
+          return true;
         }
+        if (!updateInfo.available) {
+          renderSystem('Already on the latest version.');
+          return true;
+        }
+        renderSystem(`Updating to v${updateInfo.latest}...`);
+        let newVer;
+        try {
+          newVer = applyUpdate(updateInfo.latest);
+        } catch (err) {
+          renderSystem('Integrity check unavailable, using fallback...');
+          newVer = applyUpdateFallback(updateInfo.latest);
+        }
+        renderSystem(`\u2713 Updated to v${newVer}. Restart Vennie to use the new version.`);
         return true;
       }
 
