@@ -47,3 +47,7 @@ coverage/
 # npm
 .npm
 package-lock.json
+
+# Release artifacts
+*.tgz
+*.tar.gz
